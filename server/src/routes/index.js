@@ -3,18 +3,14 @@ import authRoutes from './auth.routes.js';
 import projectRoutes from './project.routes.js';
 import generationRoutes from './generation.routes.js';
 import snapshotRoutes from './snapshot.routes.js';
-import deployRoutes from './deploy.routes.js';
-import assistantRoutes from './assistant.routes.js';
-import agentRoutes from './agent.routes.js';
+import teamRoutes from './team.routes.js';
 
 const router = Router();
 
 router.use('/auth', authRoutes);
 router.use('/projects', projectRoutes);
 router.use('/projects', snapshotRoutes);
-router.use('/projects', agentRoutes);
 router.use('/generate', generationRoutes);
-router.use('/deploy', deployRoutes);
-router.use('/assistant', assistantRoutes);
+router.use('/team', teamRoutes);
 
 export default router;
