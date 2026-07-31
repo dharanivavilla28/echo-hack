@@ -1,10 +1,10 @@
 import { Router } from 'express';
-import { authMiddleware } from '../middleware/auth.middleware.js';
+import authenticate from '../middleware/auth.middleware.js';
 import { deployProject, getDeployStatus } from '../controllers/deploy.controller.js';
 
 const router = Router();
 
-router.use(authMiddleware);
+router.use(authenticate);
 
 router.post('/:projectId', deployProject);
 router.get('/:projectId/status', getDeployStatus);
