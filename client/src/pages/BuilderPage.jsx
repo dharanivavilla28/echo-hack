@@ -7,13 +7,15 @@ import CodeEditor from '../components/CodeEditor.jsx';
 import LivePreview from '../components/LivePreview.jsx';
 import SnapshotTimeline from '../components/Snapshots/SnapshotTimeline.jsx';
 import SaveSnapshotModal from '../components/Snapshots/SaveSnapshotModal.jsx';
+import DeployButton from '../components/DeployButton.jsx';
+import CodeAssistantPanel from '../components/CodeAssistant/CodeAssistantPanel.jsx';
 import PresenceBar from '../components/Presence/PresenceBar.jsx';
 import ProjectChat from '../components/ProjectChat/ProjectChat.jsx';
 import { getProject, updateProject, updateProjectCode } from '../services/projectService.js';
 import { getProjectTeam } from '../services/teamService.js';
 import { joinCollaboration } from '../services/socketService.js';
 import { canEditProject } from '../services/permissionService.js';
-import { generateCode } from '../services/generationService.js';
+import { chatWithAgent } from '../services/agentService.js';
 import { snapshotService } from '../services/snapshotService.js';
 import '../styles/builder.css';
 import '../styles/collaboration.css';
@@ -51,6 +53,8 @@ function BuilderPage() {
   const [teamRole, setTeamRole] = useState(null);
   const [chatMessages, setChatMessages] = useState([]);
   const [isTeamProject, setIsTeamProject] = useState(false);
+  const [assistantOpen, setAssistantOpen] = useState(false);
+  const [showVersions, setShowVersions] = useState(false);
 
   const initialLoadRef = useRef(true);
   const isAiUpdateRef = useRef(false);
@@ -166,7 +170,7 @@ function BuilderPage() {
     setLoading(true);
 
     try {
-      const result = await generateCode(projectId, prompt);
+      const result = await chatWithAgent(projectId, prompt);
 
       setMessages((prev) => [...prev, result.message]);
 
@@ -339,21 +343,33 @@ function BuilderPage() {
           <div className="builder-tabs-left">
             <button
               className={`builder-tab ${activeTab === 'preview' ? 'active' : ''}`}
-              onClick={() => setActiveTab('preview')}
+              onClick={() => { setActiveTab('preview'); setShowVersions(false); }}
             >
               Preview
             </button>
             <button
               className={`builder-tab ${activeTab === 'code' ? 'active' : ''}`}
-              onClick={() => setActiveTab('code')}
+              onClick={() => { setActiveTab('code'); setShowVersions(false); }}
             >
               Code
             </button>
+            {project?.versions?.length > 0 && (
+              <button
+                className={`builder-tab ${showVersions ? 'active' : ''}`}
+                onClick={() => setShowVersions((v) => !v)}
+                title={`${project.versions.length} saved version(s)`}
+              >
+                &#128260; Versions ({project.versions.length})
+              </button>
+            )}
           </div>
           <div className="builder-tabs-right">
             <PresenceBar members={collaborators} role={teamRole} />
             {code && (
-              <button className="builder-action-btn" onClick={handleDownload}>Download</button>
+              <>
+                <button className="builder-action-btn" onClick={handleDownload}>Download</button>
+                <DeployButton projectId={projectId} projectTitle={project?.title} code={code} />
+              </>
             )}
             <button className="builder-action-btn" onClick={() => setShowSaveModal(true)}>
               &#128190; Save Snapshot
@@ -361,11 +377,58 @@ function BuilderPage() {
             <button className="builder-action-btn" onClick={() => setShowHistory(!showHistory)}>
               &#9201; History
             </button>
+            <button
+              className={`builder-action-btn ca-toggle-btn ${assistantOpen ? 'ca-toggle-btn-active' : ''}`}
+              onClick={() => setAssistantOpen((prev) => !prev)}
+              title="Toggle AI Code Assistant"
+            >
+              &#9889; AI Assistant
+            </button>
           </div>
         </div>
 
         <div className="builder-content">
-          {activeTab === 'preview' ? (
+          {showVersions ? (
+            <div className="builder-versions-panel">
+              <div className="builder-versions-header">
+                <span>&#128260; Version History</span>
+                <button className="builder-versions-close" onClick={() => setShowVersions(false)}>&times;</button>
+              </div>
+              <div className="builder-versions-list">
+                {[...(project?.versions || [])].reverse().map((v, idx) => {
+                  const realIdx = project.versions.length - 1 - idx;
+                  return (
+                    <div key={realIdx} className="builder-version-item">
+                      <div className="builder-version-meta">
+                        <span className="builder-version-badge">v{realIdx + 1}</span>
+                        <span className="builder-version-prompt">
+                          {v.prompt ? v.prompt.slice(0, 60) + (v.prompt.length > 60 ? '...' : '') : 'Initial version'}
+                        </span>
+                      </div>
+                      <div className="builder-version-actions">
+                        <span className="builder-version-date">
+                          {v.createdAt ? new Date(v.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : ''}
+                        </span>
+                        <button
+                          className="builder-version-restore-btn"
+                          onClick={() => {
+                            if (!v.code) return;
+                            isAiUpdateRef.current = true;
+                            setCode(v.code);
+                            setActiveTab('preview');
+                            setShowVersions(false);
+                            showToast(`Restored to version ${realIdx + 1}`, 'success');
+                          }}
+                        >
+                          Restore
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ) : activeTab === 'preview' ? (
             <LivePreview code={code} />
           ) : (
             <CodeEditor code={code} onChange={handleCodeChange} readOnly={Boolean(teamRole && !canEditProject(teamRole))} saveStatus={saveStatus} />
@@ -390,6 +453,13 @@ function BuilderPage() {
         isLoading={isSavingSnapshot}
       />
       {isRestoring && <div className="restore-overlay">Restoring...</div>}
+
+      <CodeAssistantPanel
+        code={code}
+        projectTitle={project?.title}
+        isOpen={assistantOpen}
+        onClose={() => setAssistantOpen(false)}
+      />
     </div>
   );
 }
