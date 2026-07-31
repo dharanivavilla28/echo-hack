@@ -5,10 +5,12 @@ import ChatMessage from '../components/ChatMessage.jsx';
 import ChatInput from '../components/ChatInput.jsx';
 import CodeEditor from '../components/CodeEditor.jsx';
 import LivePreview from '../components/LivePreview.jsx';
+import DeployButton from '../components/DeployButton.jsx';
+import CodeAssistantPanel from '../components/CodeAssistant/CodeAssistantPanel.jsx';
 import SnapshotTimeline from '../components/Snapshots/SnapshotTimeline.jsx';
 import SaveSnapshotModal from '../components/Snapshots/SaveSnapshotModal.jsx';
 import { getProject, updateProject, updateProjectCode } from '../services/projectService.js';
-import { generateCode } from '../services/generationService.js';
+import { chatWithAgent } from '../services/agentService.js';
 import { snapshotService } from '../services/snapshotService.js';
 import '../styles/builder.css';
 
@@ -41,6 +43,7 @@ function BuilderPage() {
   const [isRestoring, setIsRestoring] = useState(false);
   const [autoSaveEnabled] = useState(true);
   const [snapshotRefreshKey, setSnapshotRefreshKey] = useState(0);
+  const [assistantOpen, setAssistantOpen] = useState(false);
 
   const initialLoadRef = useRef(true);
   const isAiUpdateRef = useRef(false);
@@ -121,7 +124,7 @@ function BuilderPage() {
     setLoading(true);
 
     try {
-      const result = await generateCode(projectId, prompt);
+      const result = await chatWithAgent(projectId, prompt);
 
       setMessages((prev) => [...prev, result.message]);
 
@@ -307,13 +310,23 @@ function BuilderPage() {
           </div>
           <div className="builder-tabs-right">
             {code && (
-              <button className="builder-action-btn" onClick={handleDownload}>Download</button>
+              <>
+                <button className="builder-action-btn" onClick={handleDownload}>Download</button>
+                <DeployButton projectId={projectId} projectTitle={project?.title} code={code} />
+              </>
             )}
             <button className="builder-action-btn" onClick={() => setShowSaveModal(true)}>
               &#128190; Save Snapshot
             </button>
             <button className="builder-action-btn" onClick={() => setShowHistory(!showHistory)}>
               &#9201; History
+            </button>
+            <button
+              className={`builder-action-btn ca-toggle-btn ${assistantOpen ? 'ca-toggle-btn-active' : ''}`}
+              onClick={() => setAssistantOpen((prev) => !prev)}
+              title="Toggle AI Code Assistant"
+            >
+              &#9889; AI Assistant
             </button>
           </div>
         </div>
@@ -343,6 +356,13 @@ function BuilderPage() {
         isLoading={isSavingSnapshot}
       />
       {isRestoring && <div className="restore-overlay">Restoring...</div>}
+
+      <CodeAssistantPanel
+        code={code}
+        projectTitle={project?.title}
+        isOpen={assistantOpen}
+        onClose={() => setAssistantOpen(false)}
+      />
     </div>
   );
 }
