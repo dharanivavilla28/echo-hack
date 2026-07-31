@@ -44,6 +44,7 @@ function BuilderPage() {
   const [autoSaveEnabled] = useState(true);
   const [snapshotRefreshKey, setSnapshotRefreshKey] = useState(0);
   const [assistantOpen, setAssistantOpen] = useState(false);
+  const [showVersions, setShowVersions] = useState(false);
 
   const initialLoadRef = useRef(true);
   const isAiUpdateRef = useRef(false);
@@ -216,6 +217,16 @@ function BuilderPage() {
     setSnapshotRefreshKey((value) => value + 1);
   };
 
+  const handleVersionRestore = (versionCode, versionIndex) => {
+    if (!versionCode) return;
+    isAiUpdateRef.current = true;
+    setCode(versionCode);
+    setActiveTab('preview');
+    setSaveStatus('saved');
+    setShowVersions(false);
+    showToast(`Restored to version ${versionIndex + 1}`, 'success');
+  };
+
   if (pageLoading) {
     return (
       <div className="loading-state" style={{ flex: 1 }}>
@@ -297,16 +308,25 @@ function BuilderPage() {
           <div className="builder-tabs-left">
             <button
               className={`builder-tab ${activeTab === 'preview' ? 'active' : ''}`}
-              onClick={() => setActiveTab('preview')}
+              onClick={() => { setActiveTab('preview'); setShowVersions(false); }}
             >
               Preview
             </button>
             <button
               className={`builder-tab ${activeTab === 'code' ? 'active' : ''}`}
-              onClick={() => setActiveTab('code')}
+              onClick={() => { setActiveTab('code'); setShowVersions(false); }}
             >
               Code
             </button>
+            {project?.versions?.length > 0 && (
+              <button
+                className={`builder-tab ${showVersions ? 'active' : ''}`}
+                onClick={() => setShowVersions((v) => !v)}
+                title={`${project.versions.length} saved version(s)`}
+              >
+                &#128260; Versions ({project.versions.length})
+              </button>
+            )}
           </div>
           <div className="builder-tabs-right">
             {code && (
@@ -332,7 +352,40 @@ function BuilderPage() {
         </div>
 
         <div className="builder-content">
-          {activeTab === 'preview' ? (
+          {showVersions ? (
+            <div className="builder-versions-panel">
+              <div className="builder-versions-header">
+                <span>&#128260; Version History</span>
+                <button className="builder-versions-close" onClick={() => setShowVersions(false)}>&times;</button>
+              </div>
+              <div className="builder-versions-list">
+                {[...project.versions].reverse().map((v, idx) => {
+                  const realIdx = project.versions.length - 1 - idx;
+                  return (
+                    <div key={realIdx} className="builder-version-item">
+                      <div className="builder-version-meta">
+                        <span className="builder-version-badge">v{realIdx + 1}</span>
+                        <span className="builder-version-prompt">
+                          {v.prompt ? v.prompt.slice(0, 60) + (v.prompt.length > 60 ? '...' : '') : 'Initial version'}
+                        </span>
+                      </div>
+                      <div className="builder-version-actions">
+                        <span className="builder-version-date">
+                          {v.createdAt ? new Date(v.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : ''}
+                        </span>
+                        <button
+                          className="builder-version-restore-btn"
+                          onClick={() => handleVersionRestore(v.code, realIdx)}
+                        >
+                          Restore
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ) : activeTab === 'preview' ? (
             <LivePreview code={code} />
           ) : (
             <CodeEditor code={code} onChange={setCode} readOnly={false} saveStatus={saveStatus} />

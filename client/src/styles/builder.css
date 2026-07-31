@@ -755,9 +755,118 @@
 
   .builder-preview {
     height: 50%;
-  }
+
+/* Restore overlay */
+.restore-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  color: #6366f1;
+  z-index: 100;
 }
 
+/* Versions Panel */
+.builder-versions-panel {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: #f8fafc;
+}
+
+.builder-versions-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  background: #ffffff;
+  border-bottom: 1px solid #e2e8f0;
+  font-weight: 600;
+  color: #1e293b;
+}
+
+.builder-versions-close {
+  background: none;
+  border: none;
+  font-size: 20px;
+  cursor: pointer;
+  color: #64748b;
+}
+
+.builder-versions-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.builder-version-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+}
+
+.builder-version-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  overflow: hidden;
+}
+
+.builder-version-badge {
+  background: #e0e7ff;
+  color: #4338ca;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.builder-version-prompt {
+  font-size: 13px;
+  color: #334155;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.builder-version-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+.builder-version-date {
+  font-size: 11px;
+  color: #94a3b8;
+}
+
+.builder-version-restore-btn {
+  background: #6366f1;
+  color: white;
+  border: none;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: background 0.15s;
+}
+
+.builder-version-restore-btn:hover {
+  background: #4f46e5;
+}
 
 /* =============================================
    AI CODE ASSISTANT PANEL
