@@ -5,14 +5,18 @@ import ChatMessage from '../components/ChatMessage.jsx';
 import ChatInput from '../components/ChatInput.jsx';
 import CodeEditor from '../components/CodeEditor.jsx';
 import LivePreview from '../components/LivePreview.jsx';
-import DeployButton from '../components/DeployButton.jsx';
-import CodeAssistantPanel from '../components/CodeAssistant/CodeAssistantPanel.jsx';
 import SnapshotTimeline from '../components/Snapshots/SnapshotTimeline.jsx';
 import SaveSnapshotModal from '../components/Snapshots/SaveSnapshotModal.jsx';
+import PresenceBar from '../components/Presence/PresenceBar.jsx';
+import ProjectChat from '../components/ProjectChat/ProjectChat.jsx';
 import { getProject, updateProject, updateProjectCode } from '../services/projectService.js';
-import { chatWithAgent } from '../services/agentService.js';
+import { getProjectTeam } from '../services/teamService.js';
+import { joinCollaboration } from '../services/socketService.js';
+import { canEditProject } from '../services/permissionService.js';
+import { generateCode } from '../services/generationService.js';
 import { snapshotService } from '../services/snapshotService.js';
 import '../styles/builder.css';
+import '../styles/collaboration.css';
 
 const EXAMPLE_PROMPTS = [
   'A personal portfolio website with a dark theme',
@@ -43,12 +47,15 @@ function BuilderPage() {
   const [isRestoring, setIsRestoring] = useState(false);
   const [autoSaveEnabled] = useState(true);
   const [snapshotRefreshKey, setSnapshotRefreshKey] = useState(0);
-  const [assistantOpen, setAssistantOpen] = useState(false);
-  const [showVersions, setShowVersions] = useState(false);
+  const [collaborators, setCollaborators] = useState([]);
+  const [teamRole, setTeamRole] = useState(null);
+  const [chatMessages, setChatMessages] = useState([]);
+  const [isTeamProject, setIsTeamProject] = useState(false);
 
   const initialLoadRef = useRef(true);
   const isAiUpdateRef = useRef(false);
   const snapshotInitialLoadRef = useRef(true);
+  const collaborationRef = useRef(null);
 
   useEffect(() => {
     const loadProject = async () => {
@@ -67,6 +74,40 @@ function BuilderPage() {
     };
     loadProject();
   }, [projectId]);
+
+  useEffect(() => {
+    if (!project) return undefined;
+    let active = true;
+    getProjectTeam(projectId).then((data) => { if (active) setIsTeamProject(Boolean(data.team)); }).catch(() => {});
+    const session = joinCollaboration(projectId, (state) => {
+      if (!active || !state.ok) return;
+      setTeamRole(state.role);
+      setCollaborators(state.presence || []);
+      setChatMessages(state.chatMessages || []);
+      if (!session.text.length && code) session.doc.transact(() => session.text.insert(0, code));
+    });
+    collaborationRef.current = session;
+    const observeCode = () => { if (active) setCode(session.text.toString()); };
+    const onPresence = (members) => active && setCollaborators(members);
+    const onChat = (message) => active && setChatMessages((items) => [...items, message]);
+    session.text.observe(observeCode);
+    session.socket.on('presence-update', onPresence);
+    session.socket.on('chat-message', onChat);
+    return () => { active = false; session.text.unobserve(observeCode); session.socket.off('presence-update', onPresence); session.socket.off('chat-message', onChat); session.leave(); collaborationRef.current = null; };
+  }, [project, projectId]);
+
+  const setCollaborativeCode = (nextCode) => {
+    const session = collaborationRef.current;
+    if (session && canEditProject(teamRole || 'owner')) {
+      session.doc.transact(() => { session.text.delete(0, session.text.length); session.text.insert(0, nextCode); });
+    } else if (!session) setCode(nextCode);
+  };
+
+  const handleCodeChange = (nextCode) => {
+    if (teamRole && !canEditProject(teamRole)) return;
+    setCollaborativeCode(nextCode);
+    collaborationRef.current?.socket.emit('typing', { projectId, typing: true });
+  };
 
   // Debounced auto-save for code edits
   useEffect(() => {
@@ -125,13 +166,13 @@ function BuilderPage() {
     setLoading(true);
 
     try {
-      const result = await chatWithAgent(projectId, prompt);
+      const result = await generateCode(projectId, prompt);
 
       setMessages((prev) => [...prev, result.message]);
 
       if (result.generatedCode) {
         isAiUpdateRef.current = true;
-        setCode(result.generatedCode);
+        setCollaborativeCode(result.generatedCode);
         setActiveTab('preview');
       }
 
@@ -204,7 +245,7 @@ function BuilderPage() {
       setProject(restoredProject);
       setMessages(restoredProject.messages || []);
       isAiUpdateRef.current = true;
-      setCode(restoredProject.generatedCode || '');
+      setCollaborativeCode(restoredProject.generatedCode || '');
       setActiveTab('preview');
       setSaveStatus('saved');
       setSnapshotRefreshKey((value) => value + 1);
@@ -215,16 +256,6 @@ function BuilderPage() {
 
   const handleDeleteSnapshot = () => {
     setSnapshotRefreshKey((value) => value + 1);
-  };
-
-  const handleVersionRestore = (versionCode, versionIndex) => {
-    if (!versionCode) return;
-    isAiUpdateRef.current = true;
-    setCode(versionCode);
-    setActiveTab('preview');
-    setSaveStatus('saved');
-    setShowVersions(false);
-    showToast(`Restored to version ${versionIndex + 1}`, 'success');
   };
 
   if (pageLoading) {
@@ -308,32 +339,21 @@ function BuilderPage() {
           <div className="builder-tabs-left">
             <button
               className={`builder-tab ${activeTab === 'preview' ? 'active' : ''}`}
-              onClick={() => { setActiveTab('preview'); setShowVersions(false); }}
+              onClick={() => setActiveTab('preview')}
             >
               Preview
             </button>
             <button
               className={`builder-tab ${activeTab === 'code' ? 'active' : ''}`}
-              onClick={() => { setActiveTab('code'); setShowVersions(false); }}
+              onClick={() => setActiveTab('code')}
             >
               Code
             </button>
-            {project?.versions?.length > 0 && (
-              <button
-                className={`builder-tab ${showVersions ? 'active' : ''}`}
-                onClick={() => setShowVersions((v) => !v)}
-                title={`${project.versions.length} saved version(s)`}
-              >
-                &#128260; Versions ({project.versions.length})
-              </button>
-            )}
           </div>
           <div className="builder-tabs-right">
+            <PresenceBar members={collaborators} role={teamRole} />
             {code && (
-              <>
-                <button className="builder-action-btn" onClick={handleDownload}>Download</button>
-                <DeployButton projectId={projectId} projectTitle={project?.title} code={code} />
-              </>
+              <button className="builder-action-btn" onClick={handleDownload}>Download</button>
             )}
             <button className="builder-action-btn" onClick={() => setShowSaveModal(true)}>
               &#128190; Save Snapshot
@@ -341,57 +361,18 @@ function BuilderPage() {
             <button className="builder-action-btn" onClick={() => setShowHistory(!showHistory)}>
               &#9201; History
             </button>
-            <button
-              className={`builder-action-btn ca-toggle-btn ${assistantOpen ? 'ca-toggle-btn-active' : ''}`}
-              onClick={() => setAssistantOpen((prev) => !prev)}
-              title="Toggle AI Code Assistant"
-            >
-              &#9889; AI Assistant
-            </button>
           </div>
         </div>
 
         <div className="builder-content">
-          {showVersions ? (
-            <div className="builder-versions-panel">
-              <div className="builder-versions-header">
-                <span>&#128260; Version History</span>
-                <button className="builder-versions-close" onClick={() => setShowVersions(false)}>&times;</button>
-              </div>
-              <div className="builder-versions-list">
-                {[...project.versions].reverse().map((v, idx) => {
-                  const realIdx = project.versions.length - 1 - idx;
-                  return (
-                    <div key={realIdx} className="builder-version-item">
-                      <div className="builder-version-meta">
-                        <span className="builder-version-badge">v{realIdx + 1}</span>
-                        <span className="builder-version-prompt">
-                          {v.prompt ? v.prompt.slice(0, 60) + (v.prompt.length > 60 ? '...' : '') : 'Initial version'}
-                        </span>
-                      </div>
-                      <div className="builder-version-actions">
-                        <span className="builder-version-date">
-                          {v.createdAt ? new Date(v.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : ''}
-                        </span>
-                        <button
-                          className="builder-version-restore-btn"
-                          onClick={() => handleVersionRestore(v.code, realIdx)}
-                        >
-                          Restore
-                        </button>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          ) : activeTab === 'preview' ? (
+          {activeTab === 'preview' ? (
             <LivePreview code={code} />
           ) : (
-            <CodeEditor code={code} onChange={setCode} readOnly={false} saveStatus={saveStatus} />
+            <CodeEditor code={code} onChange={handleCodeChange} readOnly={Boolean(teamRole && !canEditProject(teamRole))} saveStatus={saveStatus} />
           )}
         </div>
       </div>
+      {isTeamProject && <ProjectChat messages={chatMessages} onSend={(text) => collaborationRef.current?.socket.emit('chat-message', { projectId, text })} />}
       <div className="snapshot-sidebar" style={{ right: showHistory ? '0' : '-360px' }}>
         <SnapshotTimeline
           projectId={projectId}
@@ -409,13 +390,6 @@ function BuilderPage() {
         isLoading={isSavingSnapshot}
       />
       {isRestoring && <div className="restore-overlay">Restoring...</div>}
-
-      <CodeAssistantPanel
-        code={code}
-        projectTitle={project?.title}
-        isOpen={assistantOpen}
-        onClose={() => setAssistantOpen(false)}
-      />
     </div>
   );
 }

@@ -1,18 +1,29 @@
 import Project from '../models/Project.model.js';
+import ProjectTeam from '../models/ProjectTeam.model.js';
+
+const accessProject = async (projectId, userId, roles = ['viewer', 'editor', 'owner']) => {
+  const owned = await Project.findOne({ _id: projectId, userId });
+  if (owned) return { project: owned, role: 'owner' };
+  const team = await ProjectTeam.findOne({ projectId, members: { $elemMatch: { userId, status: 'accepted', role: { $in: roles.filter((role) => role !== 'owner') } } } });
+  if (!team) return null;
+  const member = team.members.find((item) => item.userId?.equals(userId) && item.status === 'accepted');
+  return member && roles.includes(member.role) ? { project: await Project.findById(projectId), role: member.role } : null;
+};
 
 export const getUserProjects = async (userId) => {
-  const projects = await Project.find({ userId }).sort({ updatedAt: -1 });
+  const teams = await ProjectTeam.find({ members: { $elemMatch: { userId, status: 'accepted' } } }).select('projectId');
+  const projects = await Project.find({ $or: [{ userId }, { _id: { $in: teams.map((team) => team.projectId) } }] }).sort({ updatedAt: -1 });
   return projects;
 };
 
 export const getProjectById = async (projectId, userId) => {
-  const project = await Project.findOne({ _id: projectId, userId });
-  if (!project) {
+  const access = await accessProject(projectId, userId);
+  if (!access?.project) {
     const error = new Error('Project not found.');
     error.statusCode = 404;
     throw error;
   }
-  return project;
+  return access.project;
 };
 
 export const createProject = async (userId, title) => {
@@ -27,7 +38,8 @@ export const createProject = async (userId, title) => {
 };
 
 export const updateProject = async (projectId, userId, updates) => {
-  const project = await Project.findOne({ _id: projectId, userId });
+  const access = await accessProject(projectId, userId, ['editor', 'owner']);
+  const project = access?.project;
   if (!project) {
     const error = new Error('Project not found.');
     error.statusCode = 404;
@@ -53,7 +65,8 @@ export const deleteProject = async (projectId, userId) => {
 };
 
 export const updateProjectCode = async (projectId, userId, code) => {
-  const project = await Project.findOne({ _id: projectId, userId });
+  const access = await accessProject(projectId, userId, ['editor', 'owner']);
+  const project = access?.project;
   if (!project) {
     const error = new Error('Project not found.');
     error.statusCode = 404;
@@ -76,7 +89,8 @@ export const updateProjectCode = async (projectId, userId, code) => {
 };
 
 export const getProjectCode = async (projectId, userId) => {
-  const project = await Project.findOne({ _id: projectId, userId });
+  const access = await accessProject(projectId, userId);
+  const project = access?.project;
   if (!project) {
     const error = new Error('Project not found.');
     error.statusCode = 404;
