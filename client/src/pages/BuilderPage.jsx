@@ -5,6 +5,7 @@ import ChatMessage from '../components/ChatMessage.jsx';
 import ChatInput from '../components/ChatInput.jsx';
 import CodeEditor from '../components/CodeEditor.jsx';
 import LivePreview from '../components/LivePreview.jsx';
+import DeployButton from '../components/DeployButton.jsx';
 import { getProject, updateProject, updateProjectCode } from '../services/projectService.js';
 import { generateCode } from '../services/generationService.js';
 import '../styles/builder.css';
@@ -236,7 +237,10 @@ function BuilderPage() {
           </div>
           <div className="builder-tabs-right">
             {code && (
-              <button className="builder-action-btn" onClick={handleDownload}>Download</button>
+              <>
+                <button className="builder-action-btn" onClick={handleDownload}>Download</button>
+                <DeployButton projectId={projectId} projectTitle={project?.title} code={code} />
+              </>
             )}
           </div>
         </div>

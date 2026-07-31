@@ -32,6 +32,21 @@ const projectSchema = new mongoose.Schema({
     default: [],
   },
 
+  githubRepo: {
+    type: String,
+    default: '',
+  },
+
+  deployUrl: {
+    type: String,
+    default: '',
+  },
+
+  deployStatus: {
+    type: String,
+    default: 'idle', // 'idle', 'deploying', 'deployed', 'failed'
+  },
+
   createdAt: {
     type: Date,
     default: Date.now,
