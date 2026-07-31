@@ -32,19 +32,35 @@ const projectSchema = new mongoose.Schema({
     default: [],
   },
 
-  githubRepo: {
-    type: String,
-    default: '',
-  },
+  snapshots: [{
+    code: {
+      type: String,
+      required: true,
+    },
+    prompt: {
+      type: String,
+      default: '',
+    },
+    message: {
+      type: String,
+      default: 'Auto-snapshot',
+    },
+    version: {
+      type: Number,
+      default: 0,
+    },
+    createdAt: {
+      type: Date,
+      default: Date.now,
+    },
+    restoredAt: {
+      type: Date,
+    },
+  }],
 
-  deployUrl: {
-    type: String,
-    default: '',
-  },
-
-  deployStatus: {
-    type: String,
-    default: 'idle', // 'idle', 'deploying', 'deployed', 'failed'
+  currentVersion: {
+    type: Number,
+    default: 0,
   },
 
   createdAt: {
