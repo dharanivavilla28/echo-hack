@@ -2,7 +2,7 @@ import { useState, useEffect, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ToastContext } from '../context/ToastContext.jsx';
 import ProjectCard from '../components/ProjectCard.jsx';
-import { getProjects, createProject, deleteProject } from '../services/projectService.js';
+import { getProjects, deleteProject } from '../services/projectService.js';
 import '../styles/dashboard.css';
 
 function DashboardPage() {
@@ -17,6 +17,9 @@ function DashboardPage() {
       try {
         const data = await getProjects();
         setProjects(data);
+        if (data.length === 0) {
+          navigate('/onboarding', { replace: true });
+        }
       } catch (err) {
         showToast('Failed to load projects.', 'error');
       } finally {
@@ -24,15 +27,10 @@ function DashboardPage() {
       }
     };
     fetchProjects();
-  }, []);
+  }, [navigate]);
 
-  const handleNewProject = async () => {
-    try {
-      const project = await createProject();
-      navigate(`/builder/${project._id}`);
-    } catch (err) {
-      showToast('Failed to create project.', 'error');
-    }
+  const handleNewProject = () => {
+    navigate('/onboarding');
   };
 
   const handleOpen = (id) => {

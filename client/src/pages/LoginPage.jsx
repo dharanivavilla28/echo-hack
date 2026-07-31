@@ -46,7 +46,7 @@ function LoginPage() {
         isSignUp ? `Welcome, ${result.user.name}!` : `Welcome back, ${result.user.name}!`,
         'success'
       );
-      navigate('/dashboard');
+      navigate(isSignUp ? '/onboarding' : '/dashboard');
     } catch (err) {
       const message = err.response && err.response.data && err.response.data.message
         ? err.response.data.message
