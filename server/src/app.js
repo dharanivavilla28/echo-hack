@@ -5,7 +5,22 @@ import { errorHandler, notFoundHandler } from './middleware/error.middleware.js'
 
 const app = express();
 
-app.use(cors({ origin: process.env.CLIENT_URL || 'http://localhost:5173' }));
+const allowedOrigins = [
+  process.env.CLIENT_URL,
+  'http://localhost:5173',
+  'https://echo-dev-rho.vercel.app'
+].filter(Boolean);
+
+app.use(cors({
+  origin: (origin, callback) => {
+    if (!origin || allowedOrigins.indexOf(origin) !== -1) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true
+}));
 app.use(express.json({ limit: '10mb' }));
 
 app.use('/api', routes);
