@@ -7,6 +7,7 @@ import teamRoutes from './team.routes.js';
 import deployRoutes from './deploy.routes.js';
 import assistantRoutes from './assistant.routes.js';
 import agentRoutes from './agent.routes.js';
+import onboardingRoutes from './onboarding.routes.js';
 
 const router = Router();
 
@@ -18,5 +19,6 @@ router.use('/generate', generationRoutes);
 router.use('/team', teamRoutes);
 router.use('/deploy', deployRoutes);
 router.use('/assistant', assistantRoutes);
+router.use('/onboarding', onboardingRoutes);
 
 export default router;

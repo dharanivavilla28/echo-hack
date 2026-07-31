@@ -4,7 +4,7 @@ import { ToastContext } from '../context/ToastContext.jsx';
 import ProjectCard from '../components/ProjectCard.jsx';
 import TeamModal from '../components/ProjectTeam/TeamModal.jsx';
 import InvitationDialog from '../components/Invitations/InvitationDialog.jsx';
-import { getProjects, createProject, deleteProject } from '../services/projectService.js';
+import { getProjects, deleteProject } from '../services/projectService.js';
 import { createTeamProject } from '../services/teamService.js';
 import { getInvitations, respondToInvitation } from '../services/invitationService.js';
 import '../styles/dashboard.css';
@@ -25,6 +25,9 @@ function DashboardPage() {
       try {
         const data = await getProjects();
         setProjects(data);
+        if (data.length === 0) {
+          navigate('/onboarding', { replace: true });
+        }
       } catch (err) {
         showToast('Failed to load projects.', 'error');
       } finally {
@@ -32,7 +35,7 @@ function DashboardPage() {
       }
     };
     fetchProjects();
-  }, []);
+  }, [navigate]);
 
   useEffect(() => { getInvitations().then(setInvitations).catch(() => {}); }, []);
 
@@ -40,15 +43,9 @@ function DashboardPage() {
     try { await respondToInvitation(teamId, status); setInvitations((items) => items.filter((item) => item._id !== teamId)); if (status === 'accepted') setProjects(await getProjects()); showToast(`Invitation ${status}.`, 'success'); } catch (_) { showToast('Unable to update invitation.', 'error'); }
   };
 
-  const handleNewProject = async (title) => {
-    try {
-      setCreating(true);
-      const project = await createProject(title);
-      setShowCreateModal(false);
-      navigate(`/builder/${project._id}`);
-    } catch (err) {
-      showToast('Failed to create project.', 'error');
-    } finally { setCreating(false); }
+  const handleNewProject = () => {
+    setShowCreateModal(false);
+    navigate('/onboarding');
   };
 
   const handleNewTeamProject = async ({ title, members }) => {
