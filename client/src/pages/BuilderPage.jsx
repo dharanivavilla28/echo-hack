@@ -6,6 +6,7 @@ import ChatInput from '../components/ChatInput.jsx';
 import CodeEditor from '../components/CodeEditor.jsx';
 import LivePreview from '../components/LivePreview.jsx';
 import DeployButton from '../components/DeployButton.jsx';
+import CodeAssistantPanel from '../components/CodeAssistant/CodeAssistantPanel.jsx';
 import { getProject, updateProject, updateProjectCode } from '../services/projectService.js';
 import { generateCode } from '../services/generationService.js';
 import '../styles/builder.css';
@@ -23,6 +24,7 @@ function BuilderPage() {
   const { projectId } = useParams();
   const navigate = useNavigate();
   const { showToast } = useContext(ToastContext);
+  const [assistantOpen, setAssistantOpen] = useState(false);
 
   const [project, setProject] = useState(null);
   const [messages, setMessages] = useState([]);
@@ -242,6 +244,13 @@ function BuilderPage() {
                 <DeployButton projectId={projectId} projectTitle={project?.title} code={code} />
               </>
             )}
+            <button
+              className={`builder-action-btn ca-toggle-btn ${assistantOpen ? 'ca-toggle-btn-active' : ''}`}
+              onClick={() => setAssistantOpen((prev) => !prev)}
+              title="Toggle AI Code Assistant"
+            >
+              ⚡ AI Assistant
+            </button>
           </div>
         </div>
 
@@ -253,6 +262,13 @@ function BuilderPage() {
           )}
         </div>
       </div>
+
+      <CodeAssistantPanel
+        code={code}
+        projectTitle={project?.title}
+        isOpen={assistantOpen}
+        onClose={() => setAssistantOpen(false)}
+      />
     </div>
   );
 }
