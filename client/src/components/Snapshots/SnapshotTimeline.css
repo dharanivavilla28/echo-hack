@@ -1,0 +1,196 @@
+.snapshot-sidebar {
+  position: fixed;
+  top: 0;
+  right: -360px;
+  z-index: 40;
+  width: 360px;
+  height: 100vh;
+  background: #ffffff;
+  border-left: 1px solid #e8e7f0;
+  box-shadow: -18px 0 40px rgba(26, 26, 46, 0.12);
+  transition: right 0.25s ease;
+}
+
+.snapshot-timeline {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background: #ffffff;
+}
+
+.snapshot-timeline-header {
+  height: 52px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0 16px;
+  border-bottom: 1px solid #e8e7f0;
+}
+
+.snapshot-timeline-header h3 {
+  font-family: "Bree Serif", serif;
+  font-size: 16px;
+  color: #1a1a2e;
+}
+
+.snapshot-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.snapshot-close-btn {
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  font-size: 20px;
+  line-height: 1;
+}
+
+.snapshot-state {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 24px;
+  color: #8b8ba3;
+  text-align: center;
+}
+
+.snapshot-state-error {
+  color: #ef4444;
+}
+
+.snapshot-list {
+  position: relative;
+  flex: 1;
+  overflow-y: auto;
+  padding: 18px 16px 24px 28px;
+}
+
+.snapshot-list::before {
+  content: "";
+  position: absolute;
+  top: 28px;
+  bottom: 28px;
+  left: 34px;
+  width: 2px;
+  background: #e8e7f0;
+}
+
+.snapshot-item {
+  position: relative;
+  display: flex;
+  gap: 14px;
+  margin-bottom: 14px;
+}
+
+.snapshot-dot {
+  position: relative;
+  z-index: 1;
+  flex: 0 0 auto;
+  width: 14px;
+  height: 14px;
+  margin-top: 16px;
+  border: 3px solid #ffffff;
+  border-radius: 50%;
+  background: #6366f1;
+  box-shadow: 0 0 0 1px #c4b5fd;
+}
+
+.snapshot-card {
+  flex: 1;
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid #e8e7f0;
+  border-radius: 8px;
+  background: #f8f7ff;
+}
+
+.snapshot-card-header {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+
+.snapshot-version {
+  font-size: 13px;
+  font-weight: 700;
+  color: #1a1a2e;
+}
+
+.snapshot-current-badge,
+.snapshot-restored-badge {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 999px;
+}
+
+.snapshot-current-badge {
+  color: #047857;
+  background: rgba(16, 185, 129, 0.12);
+}
+
+.snapshot-restored-badge {
+  color: #7c3aed;
+  background: rgba(124, 58, 237, 0.12);
+}
+
+.snapshot-time,
+.snapshot-message,
+.snapshot-prompt {
+  margin: 0;
+}
+
+.snapshot-time {
+  font-size: 11px;
+  color: #8b8ba3;
+}
+
+.snapshot-message {
+  margin-top: 8px;
+  font-size: 13px;
+  line-height: 1.45;
+  color: #1a1a2e;
+}
+
+.snapshot-prompt {
+  margin-top: 6px;
+  font-size: 12px;
+  line-height: 1.45;
+  color: #6b6b85;
+}
+
+.snapshot-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.snapshot-action-btn {
+  padding: 5px 10px;
+}
+
+.restore-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(18, 16, 30, 0.32);
+  color: #ffffff;
+  font-weight: 700;
+}
+
+@media (max-width: 768px) {
+  .snapshot-sidebar {
+    width: min(360px, 92vw);
+  }
+}

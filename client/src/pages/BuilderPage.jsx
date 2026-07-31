@@ -5,10 +5,11 @@ import ChatMessage from '../components/ChatMessage.jsx';
 import ChatInput from '../components/ChatInput.jsx';
 import CodeEditor from '../components/CodeEditor.jsx';
 import LivePreview from '../components/LivePreview.jsx';
-import DeployButton from '../components/DeployButton.jsx';
-import CodeAssistantPanel from '../components/CodeAssistant/CodeAssistantPanel.jsx';
+import SnapshotTimeline from '../components/Snapshots/SnapshotTimeline.jsx';
+import SaveSnapshotModal from '../components/Snapshots/SaveSnapshotModal.jsx';
 import { getProject, updateProject, updateProjectCode } from '../services/projectService.js';
 import { generateCode } from '../services/generationService.js';
+import { snapshotService } from '../services/snapshotService.js';
 import '../styles/builder.css';
 
 const EXAMPLE_PROMPTS = [
@@ -24,7 +25,6 @@ function BuilderPage() {
   const { projectId } = useParams();
   const navigate = useNavigate();
   const { showToast } = useContext(ToastContext);
-  const [assistantOpen, setAssistantOpen] = useState(false);
 
   const [project, setProject] = useState(null);
   const [messages, setMessages] = useState([]);
@@ -35,9 +35,16 @@ function BuilderPage() {
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [editTitle, setEditTitle] = useState('');
   const [saveStatus, setSaveStatus] = useState('saved'); // 'saved', 'saving', 'unsaved'
+  const [showHistory, setShowHistory] = useState(false);
+  const [showSaveModal, setShowSaveModal] = useState(false);
+  const [isSavingSnapshot, setIsSavingSnapshot] = useState(false);
+  const [isRestoring, setIsRestoring] = useState(false);
+  const [autoSaveEnabled] = useState(true);
+  const [snapshotRefreshKey, setSnapshotRefreshKey] = useState(0);
 
   const initialLoadRef = useRef(true);
   const isAiUpdateRef = useRef(false);
+  const snapshotInitialLoadRef = useRef(true);
 
   useEffect(() => {
     const loadProject = async () => {
@@ -85,6 +92,26 @@ function BuilderPage() {
 
     return () => clearTimeout(timer);
   }, [code, projectId]);
+
+  useEffect(() => {
+    if (snapshotInitialLoadRef.current) {
+      snapshotInitialLoadRef.current = false;
+      return;
+    }
+
+    if (!autoSaveEnabled || loading || !projectId || !code.trim()) {
+      return;
+    }
+
+    const latestPrompt = [...messages].reverse().find((message) => message.role === 'user')?.content || '';
+    const timer = setTimeout(() => {
+      snapshotService.createSnapshot(projectId, code, latestPrompt, 'Auto-snapshot')
+        .then(() => setSnapshotRefreshKey((value) => value + 1))
+        .catch((err) => console.error('Auto-save failed:', err));
+    }, 5000);
+
+    return () => clearTimeout(timer);
+  }, [code, projectId, messages, autoSaveEnabled, loading]);
 
   const handleSend = async (prompt) => {
     if (loading) return;
@@ -143,6 +170,47 @@ function BuilderPage() {
     link.click();
     URL.revokeObjectURL(url);
     showToast('Code downloaded!', 'success');
+  };
+
+  const handleSaveSnapshot = async (message) => {
+    if (!code.trim()) {
+      showToast('There is no code to snapshot yet.', 'error');
+      return;
+    }
+
+    const latestPrompt = [...messages].reverse().find((item) => item.role === 'user')?.content || '';
+    setIsSavingSnapshot(true);
+
+    try {
+      await snapshotService.createSnapshot(projectId, code, latestPrompt, message || 'Manual snapshot');
+      setSnapshotRefreshKey((value) => value + 1);
+      showToast('Snapshot saved.', 'success');
+    } catch (err) {
+      const messageText = err.response?.data?.message || 'Failed to save snapshot.';
+      showToast(messageText, 'error');
+      throw err;
+    } finally {
+      setIsSavingSnapshot(false);
+    }
+  };
+
+  const handleRestore = (restoredProject) => {
+    setIsRestoring(true);
+    try {
+      setProject(restoredProject);
+      setMessages(restoredProject.messages || []);
+      isAiUpdateRef.current = true;
+      setCode(restoredProject.generatedCode || '');
+      setActiveTab('preview');
+      setSaveStatus('saved');
+      setSnapshotRefreshKey((value) => value + 1);
+    } finally {
+      setTimeout(() => setIsRestoring(false), 300);
+    }
+  };
+
+  const handleDeleteSnapshot = () => {
+    setSnapshotRefreshKey((value) => value + 1);
   };
 
   if (pageLoading) {
@@ -239,17 +307,13 @@ function BuilderPage() {
           </div>
           <div className="builder-tabs-right">
             {code && (
-              <>
-                <button className="builder-action-btn" onClick={handleDownload}>Download</button>
-                <DeployButton projectId={projectId} projectTitle={project?.title} code={code} />
-              </>
+              <button className="builder-action-btn" onClick={handleDownload}>Download</button>
             )}
-            <button
-              className={`builder-action-btn ca-toggle-btn ${assistantOpen ? 'ca-toggle-btn-active' : ''}`}
-              onClick={() => setAssistantOpen((prev) => !prev)}
-              title="Toggle AI Code Assistant"
-            >
-              ⚡ AI Assistant
+            <button className="builder-action-btn" onClick={() => setShowSaveModal(true)}>
+              &#128190; Save Snapshot
+            </button>
+            <button className="builder-action-btn" onClick={() => setShowHistory(!showHistory)}>
+              &#9201; History
             </button>
           </div>
         </div>
@@ -262,13 +326,23 @@ function BuilderPage() {
           )}
         </div>
       </div>
-
-      <CodeAssistantPanel
-        code={code}
-        projectTitle={project?.title}
-        isOpen={assistantOpen}
-        onClose={() => setAssistantOpen(false)}
+      <div className="snapshot-sidebar" style={{ right: showHistory ? '0' : '-360px' }}>
+        <SnapshotTimeline
+          projectId={projectId}
+          refreshKey={snapshotRefreshKey}
+          onRestore={handleRestore}
+          onDelete={handleDeleteSnapshot}
+          onClose={() => setShowHistory(false)}
+          isOpen={showHistory}
+        />
+      </div>
+      <SaveSnapshotModal
+        isOpen={showSaveModal}
+        onClose={() => setShowSaveModal(false)}
+        onSave={handleSaveSnapshot}
+        isLoading={isSavingSnapshot}
       />
+      {isRestoring && <div className="restore-overlay">Restoring...</div>}
     </div>
   );
 }
